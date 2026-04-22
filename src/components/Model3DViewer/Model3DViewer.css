@@ -1,0 +1,64 @@
+/* ══════════════════════════════════════════════
+   MODEL 3D VIEWER
+   ══════════════════════════════════════════════ */
+
+.model-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  inset: 0 !important;
+  cursor: grab;
+  outline: none;
+}
+.model-canvas:active {
+  cursor: grabbing;
+}
+
+/* ── Drag hint badge ─────────────────────────── */
+.model-drag-hint {
+  position: absolute;
+  bottom: 100px;          /* just above hero text area */
+  right: 40px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px 9px 12px;
+  border-radius: 50px;
+  background: rgba(8, 8, 9, 0.65);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 106, 0, 0.25);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.model-drag-hint--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.model-drag-hint svg {
+  width: 14px;
+  height: 14px;
+  stroke: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ── Loading label (shown under rings) ───────── */
+.model-loading-label {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  transform: translate(-50%, 60px);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 106, 0, 0.6);
+  pointer-events: none;
+}

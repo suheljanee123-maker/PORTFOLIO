@@ -1,0 +1,4 @@
+/* Home page — hero fills viewport so remove top padding added by Layout */
+.home-page {
+  margin-top: calc(-1 * var(--navbar-h)); /* hero manages its own top padding */
+}
