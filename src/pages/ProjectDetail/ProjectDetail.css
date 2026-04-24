@@ -186,6 +186,41 @@
   border-radius: 50px;
 }
 
+.pd-hero__model-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pd-hero__sketchfab-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-radius: 50px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: all 0.25s ease;
+}
+
+.pd-hero__sketchfab-link svg {
+  width: 14px;
+  height: 14px;
+}
+
+.pd-hero__sketchfab-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-2px);
+}
+
 /* "Interactive 3D Model" badge */
 .pd-hero__model-badge {
   display: inline-flex;

@@ -6,9 +6,9 @@
 .ab-wrap {
   display: grid;
   grid-template-columns: 300px 1fr;
-  height: 100vh;
+  min-height: 100vh;
   padding-top: var(--navbar-h);
-  overflow: hidden;
+  padding-bottom: 60px;
   background: #0b0f14;
   font-family: var(--font-primary);
   gap: 0;
@@ -23,7 +23,6 @@
 .ab-sidebar {
   border-right: 1px solid rgba(255,255,255,0.055);
   padding: 18px 14px;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -108,7 +107,6 @@
   flex-direction: column;
   gap: 10px;                            /* consistent gap throughout */
   padding: 16px 20px 16px 20px;
-  overflow: hidden;
   min-height: 0;
 }
 
@@ -177,7 +175,7 @@
   display: grid;
   grid-template-columns: 180px 1fr auto;
   gap: 0 24px;
-  align-items: center;
+  align-items: flex-start;
   flex-shrink: 0;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,106,0,0.18);
@@ -198,7 +196,7 @@
   border: 4px solid rgba(255,106,0,0.5);
   flex-shrink: 0;
   box-shadow: 0 0 30px rgba(255,106,0,0.2);
-  align-self: center;
+  align-self: flex-start;
 }
 .ab-profile__img {
   width: 100%;
@@ -213,7 +211,7 @@
   flex-direction: column;
   gap: 2px;                             /* was 5px */
   min-width: 0;
-  align-self: center;
+  align-self: flex-start;
 }
 
 /* NAME — dominant, largest element on the page */
@@ -283,7 +281,7 @@
   display: flex;
   flex-direction: column;
   gap: 5px;                             /* was 8px */
-  align-self: center;
+  align-self: flex-start;
   align-items: stretch;
   min-width: 120px;
 }

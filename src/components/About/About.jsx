@@ -92,12 +92,12 @@ export default function About() {
           <p className="ab-sb-label">Certification</p>
           <div className="ab-sb-tags" style={{ flexDirection: 'column', gap: '5px' }}>
             {certs.map((c, i) => (
-              <a key={c} href={`/assets/certs/cert-${i + 1}.pdf`} download className="ab-tag ab-cert-tag" title={`Download ${c}`}>
+              <a key={c} href="https://drive.google.com/drive/folders/1qc97b8fojEZ7by2daDl8oq930KveAbIh?usp=sharing" target="_blank" rel="noreferrer" className="ab-tag ab-cert-tag" title={`View ${c}`}>
                 <span>{c}</span>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="ab-cert-icon">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
                 </svg>
               </a>
             ))}
@@ -129,10 +129,16 @@ export default function About() {
             <h1 className="ab-profile__name">
               SUHEL <span className="ab-acc">J. RAHMAN</span>
             </h1>
-            <p className="ab-profile__title">3D Modeling &amp; Texturing Artist</p>
+            <p className="ab-profile__title">3D Modeling &amp; Texturing Artist | Character Artist</p>
             <p className="ab-profile__bio">
-              5+ years crafting hyper-realistic 3D assets for games, film &amp; visual effects.
-              Blending technical precision with artistic vision — from hard-surface mechs to cinematic environments.
+              Passionate 3D Artist and aspiring game/cinematic
+              asset creator with hands-on experience in
+              modeling, sculpting, retopology, UV mapping, and
+              texturing. Focused on creating visually appealing
+              and optimized assets with clean topology and
+              efficient workflows. Eager to learn from professional
+              pipelines and contribute creativity, dedication, and
+              strong problem-solving skills to a studio
             </p>
             <div className="ab-socials">
               {socials.map(({ label, href, icon }) => (
@@ -145,7 +151,7 @@ export default function About() {
 
           {/* Col 3: Buttons */}
           <div className="ab-profile__actions">
-            <a href="/assets/cv.pdf" download className="ab-btn ab-btn--fill">
+            <a href="https://drive.google.com/drive/folders/16tzctkuyK6RP_HSlk2rlehaPXF6d6CmI?usp=sharing" target="_blank" rel="noreferrer" className="ab-btn ab-btn--fill">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
               Download CV
             </a>
@@ -179,10 +185,12 @@ export default function About() {
               <div className="ab-exp">
                 <div className="ab-exp__dot" />
                 <div>
-                  <p className="ab-exp__role">3D Artist &amp; Texture Specialist</p>
-                  <p className="ab-exp__sub">Freelance — 2021 to Present</p>
+                  <p className="ab-exp__role">3D Artist &amp; Texture Artist</p>
+                  <p className="ab-exp__sub"> 2025 to Present</p>
                   <p className="ab-exp__desc">
-                    Delivered production-grade 3D models, PBR materials, and cinematic renders for global clients.
+                    Worked on 3D props and character sculpts using Maya,
+                    ZBrush, and Substance Painter. Skilled in modelling,
+                    UV mapping, texturing, and creating clean low-poly assets
                   </p>
                 </div>
               </div>

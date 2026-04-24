@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCMS } from '../../context/CMSContext';
+import heroBg from '../../assets/images/hero_bg.png';
+import profileImg from '../../assets/images/profile.png';
 import './Hero.css';
 
 export default function Hero() {
@@ -47,7 +49,7 @@ export default function Hero() {
         className="hero__bg"
         ref={parallaxRef}
         style={{
-          backgroundImage: `url('/assets/images/hero_bg.png')`,
+          backgroundImage: `url(${heroBg})`,
         }}
       />
 
@@ -124,9 +126,10 @@ export default function Hero() {
             {/* Profile image */}
             <div className="hero__profile-img-wrap">
               <img
-                src="../../../assets/images/profile.png"
+                src={profileImg}
                 alt="Suhel J. Rahman — 3D Artist"
                 className="hero__profile-img"
+                onError={(e) => { e.target.src = 'https://www.artstation.com/assets/default_user.jpg'; }}
               />
             </div>
 

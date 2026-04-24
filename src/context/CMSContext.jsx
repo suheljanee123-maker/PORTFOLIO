@@ -7,9 +7,9 @@ const defaultData = {
   hero: {
     eyebrow: 'AVAILABLE FOR FREELANCE',
     name: 'SUHEL J. RAHMAN',
-    subtitle: '3D Modeling & Texturing Artist',
+    subtitle: '3D Modeling & Texturing Artist | Character Artist ',
     description:
-      'Crafting hyper-realistic 3D worlds, characters, and cinematic environments. Specializing in PBR texturing, hard-surface modeling, and real-time assets for games and film.',
+      'Passionate 3D artist focused on modeling, sculpting, and texturing, creating optimized assets with clean topology and efficient workflows. Eager to learn and contribute to professional pipelines',
   },
   about: {
     bio: `I'm Suhel J. Rahman — a passionate 3D Modeling & Texturing Artist with over 5 years of experience creating cinematic assets for games, films, and visual effects.\n\nMy work blends technical precision with artistic vision, producing hyper-realistic models that tell compelling stories. From hard-surface mechs to organic environments, I bring concepts to life with meticulous detail.`,
@@ -32,8 +32,8 @@ const defaultData = {
     whatsapp: '+91 6000925751',
     socials: {
       artstation: 'https://www.artstation.com/suhel',
-      behance: 'https://behance.net',
-      instagram: 'https://www.instagram.com/?hl=en',
+      behance: 'https://www.behance.net/suheljarahman',
+      instagram: 'https://www.instagram.com/_ri_shi_2.0/?hl=en',
       linkedin: 'https://www.linkedin.com/in/suhel-janee-rahman-348954253/',
       facebook: 'https://www.facebook.com/suhel.rahman.372/',
     },
@@ -44,32 +44,66 @@ const defaultData = {
 
 const CMSContext = createContext(null);
 
-  export function CMSProvider({ children }) {
-    const [data, setData] = useState(() => {
+export function CMSProvider({ children }) {
+  const [data, setData] = useState(() => {
+    try {
+      const stored = localStorage.getItem('portfolio_cms');
+      return stored ? { ...defaultData, ...JSON.parse(stored) } : defaultData;
+    } catch { return defaultData; }
+  });
+
+  useEffect(() => {
+    // Load feedbacks from server on startup
+    const loadFeedbacks = async () => {
       try {
-        const stored = localStorage.getItem('portfolio_cms');
-        return stored ? { ...defaultData, ...JSON.parse(stored) } : defaultData;
-      } catch { return defaultData; }
+        // Add cache-buster ?t= to prevent browser from showing old data
+        const res = await fetch(`./feedback.php?t=${Date.now()}`);
+        if (res.ok) {
+          const feedbacks = await res.json();
+          if (Array.isArray(feedbacks)) {
+             setData(prev => ({ ...prev, feedback: feedbacks }));
+          }
+        }
+      } catch (e) { console.error('[CMS] Failed to load server feedbacks', e); }
+    };
+    loadFeedbacks();
+  }, []);
+
+  const updateData = async (section, newValue) => {
+    // 1. Update local state immediately for UI responsiveness
+    setData(prev => {
+      const updated = { ...prev, [section]: newValue };
+      localStorage.setItem('portfolio_cms', JSON.stringify(updated));
+      return updated;
     });
 
-const updateData = (section, newValue) => {
-  setData(prev => {
-    const updated = { ...prev, [section]: newValue };
-    localStorage.setItem('portfolio_cms', JSON.stringify(updated));
-    return updated;
-  });
-};
+    // 2. If it's feedback, also save to server (GoDaddy)
+    if (section === 'feedback' && Array.isArray(newValue)) {
+      const latest = newValue[newValue.length - 1];
+      if (latest) {
+        try {
+          const res = await fetch('./feedback.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(latest),
+          });
+          const result = await res.json();
+          if (!res.ok) console.warn('[CMS] Server save failed:', result);
+        } catch (e) { console.error('[CMS] Failed to save feedback to server', e); }
+      }
+    }
+  };
 
-const resetData = () => {
-  localStorage.removeItem('portfolio_cms');
-  setData(defaultData);
-};
+  const resetData = () => {
+    localStorage.removeItem('portfolio_cms');
+    setData(defaultData);
+  };
 
-return (
-  <CMSContext.Provider value={{ data, updateData, resetData }}>
-    {children}
-  </CMSContext.Provider>
-);
+  return (
+    <CMSContext.Provider value={{ data, updateData, resetData }}>
+      {children}
+    </CMSContext.Provider>
+  );
 }
 
 export const useCMS = () => useContext(CMSContext);

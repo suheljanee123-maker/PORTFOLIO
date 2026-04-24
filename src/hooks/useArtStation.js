@@ -1,286 +1,288 @@
-// ============================================================
-// useArtStation — Live ArtStation data for suhel
-//
-// Proxy strategy (tried in order):
-//  1. /artstation-api  — Vite server-side proxy (best, needs dev restart)
-//  2. corsproxy.io    — free CORS passthrough
-//  3. allorigins.win  — fallback wrapper proxy
-//
-// Caching: localStorage, 1-hour TTL so each session only
-//          hits the API once even if proxies are slow.
-// ============================================================
 import { useState, useEffect } from 'react';
 
-const USERNAME  = 'suhel';
-const CACHE_KEY = 'as_suhel_projects_v14'; // exclude sketchfab from gallery
-const CACHE_TTL = 60 * 60 * 1000;         // 1 hour
+const USERNAME = 'suhel';
+const RSS_URL = `https://www.artstation.com/${USERNAME}.rss`;
+const CACHE_KEY = 'as_suhel_v6_ultra_clean'; // Force fresh sync
+const CACHE_TTL = 60 * 60 * 1000;
 
-/* ── LocalStorage cache ─────────────────────── */
+/* ── Multi-proxy fetch for RSS ───────────────── */
+async function fetchRSS() {
+  const proxies = [
+    // 1. PHP Proxy (Production - most reliable)
+    async () => {
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') throw new Error('Local');
+      const res = await fetch(`artstation-proxy.php?url=${encodeURIComponent(RSS_URL)}`);
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const text = await res.text();
+      if (!text || text.includes('parsererror') || text.includes('Checking your browser')) {
+        throw new Error('Invalid RSS response (Cloudflare or Error)');
+      }
+      return text;
+    },
+    // 2. AllOrigins Raw
+    async () => {
+      const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(RSS_URL)}`);
+      if (!res.ok) throw new Error(res.status);
+      return res.text();
+    }
+  ];
+
+  for (const proxy of proxies) {
+    try { return await proxy(); } catch { }
+  }
+  throw new Error('All proxies failed');
+}
+
 function getCache() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const { ts, data } = JSON.parse(raw);
-    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(CACHE_KEY); return null; }
-    console.log('[useArtStation] Loaded from cache');
-    return data;
-  } catch { return null; }
-}
-function setCache(data) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
-}
-
-/* ── Multi-proxy fetch ──────────────────────── */
-async function fetchURL(url) {
-  const proxies = [
-    // 1. Vite server proxy (needs dev server restart to activate)
-    async () => {
-      const path = url.replace('https://www.artstation.com', '');
-      const res  = await fetch(`/artstation-api${path}`, {
-        signal: AbortSignal.timeout(7000),
-        headers: { Accept: 'application/json' },
-      });
-      if (!res.ok) throw new Error(`vite-proxy ${res.status}`);
-      return res.json();
-    },
-    // 2. corsproxy.io
-    async () => {
-      const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, {
-        signal: AbortSignal.timeout(14000),
-        headers: { 'x-requested-with': 'XMLHttpRequest' },
-      });
-      if (!res.ok) throw new Error(`corsproxy ${res.status}`);
-      const text = await res.text();
-      return JSON.parse(text);
-    },
-    // 3. allorigins.win
-    async () => {
-      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, {
-        signal: AbortSignal.timeout(14000),
-      });
-      if (!res.ok) throw new Error(`allorigins ${res.status}`);
-      const wrapper = await res.json();
-      if (!wrapper.contents) throw new Error('allorigins: empty contents');
-      return JSON.parse(wrapper.contents);
-    },
-    // 4. thingproxy.freeboard.io
-    async () => {
-      const res = await fetch(`https://thingproxy.freeboard.io/fetch/${url}`, {
-        signal: AbortSignal.timeout(14000),
-      });
-      if (!res.ok) throw new Error(`thingproxy ${res.status}`);
-      return res.json();
-    },
-  ];
-
-  for (const proxy of proxies) {
-    try {
-      return await proxy();
-    } catch (err) {
-      console.warn(`[useArtStation] Proxy failed, trying next: ${err.message}`);
+    if (Date.now() - ts > CACHE_TTL) {
+      localStorage.removeItem(CACHE_KEY);
+      return null;
     }
+    return data;
+  } catch {
+    return null;
   }
-  throw new Error('All proxies exhausted');
 }
 
-/* ── Helpers ────────────────────────────────── */
-function deriveSize(i)  { return i === 0 ? 'featured' : i % 3 === 1 ? 'medium' : 'small'; }
-function stripHtml(h)   { return (h || '').replace(/<[^>]+>/g, '').trim(); }
+function setCache(data) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+  } catch { }
+}
 
-export function sanitizeHtml(html) {
-  return (html || '')
+
+function stripHtml(html = '') {
+  return html.replace(/<[^>]+>/g, '').trim();
+}
+
+export function sanitizeHtml(html = '') {
+  return html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/\son\w+="[^"]*"/gi, '')
     .replace(/\son\w+='[^']*'/gi, '')
     .replace(/javascript:/gi, '');
 }
 
-export function formatDate(iso) {
-  if (!iso) return null;
-  try { return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }); }
-  catch { return null; }
+export function formatDate(date) {
+  if (!date) return null;
+  try {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+    });
+  } catch {
+    return null;
+  }
 }
 
-/* ── Transform ArtStation project → portfolio shape ── */
-function transform(p, index, allItems = [], sketchfabModels = []) {
-  const year     = p.created_at ? new Date(p.created_at).getFullYear().toString() : new Date().getFullYear().toString();
-  const category = p.categories?.[0]?.name || p.medium_category_name || 'Art';
-  const tags     = p.tags || [];
+export function getText(node, tag) {
+  return node.querySelector(tag)?.textContent?.trim() || '';
+}
 
-  const assetImg  = p.assets?.find(a => a.image_url)?.image_url;
-  const mainImage = assetImg || p.cover_url || '';
+export function deriveSize(i) {
+  return i === 0 ? 'featured' : i % 3 === 1 ? 'medium' : 'small';
+}
 
-  const gallery = (p.assets || [])
-    .map(a => ({
-      url: a.image_url || null,
-      embed: a.has_embedded_player ? a.player_embedded : null,
-      width: a.width || null,
-      height: a.height || null,
-      title: a.title || null,
-      type: a.has_embedded_player ? 'video' : 'image'
-    }))
-    .filter(a => {
-      if (a.type === 'image') return !!a.url;
-      // Exclude Sketchfab from the gallery stack
-      if (a.type === 'video') return a.embed && !a.embed.toLowerCase().includes('sketchfab');
-      return false;
-    });
+export function makeId(link, index) {
+  const clean = link.split('/').filter(Boolean).pop() || `project-${index}`;
+  return `rss-${clean}`;
+}
 
-  if (!gallery.length && mainImage) gallery.push({ url: mainImage, type: 'image' });
+export function parseDescriptionContent(html = '') {
+  if (!html || typeof html !== 'string') return { description: '', images: [], embeds: [] };
 
-  const moreByArtist = allItems
-    .filter(o => o.hash_id !== p.hash_id && o.cover_url)
-    .slice(0, 4)
-    .map(o => ({ hashId: o.hash_id, title: o.title, cover: o.cover_url, permalink: o.permalink }));
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    if (!doc || !doc.body) return { description: '', images: [], embeds: [] };
+
+    // 1. Extract Images
+    const images = Array.from(doc.querySelectorAll('img'))
+      .map(img => img.src)
+      .filter(src => src && !src.includes('avatar'));
+
+    // 2. Extract Embeds
+    const embeds = Array.from(doc.querySelectorAll('iframe'))
+      .map(iframe => iframe.outerHTML);
+
+    // 3. Extract Text Description
+    // We want to keep the text but remove the large media elements we already handle elsewhere
+    const clone = doc.body.cloneNode(true);
+
+    // Remove only the elements that are definitely NOT part of the text description
+    clone.querySelectorAll('img, iframe, script, style, .artstation-embed').forEach(el => el.remove());
+
+    // Get text, but also keep some basic formatting if possible by using innerHTML with a strip
+    let description = clone.innerHTML
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, '') // Strip remaining tags
+      .replace(/\n\s*\n/g, '\n') // Remove double newlines
+      .trim();
+
+    // Fallback: If stripping everything left us with nothing, try to just get textContent
+    if (!description) {
+      description = doc.body.textContent.trim();
+    }
+
+    return { description, images, embeds };
+  } catch (e) {
+    console.error('[useArtStation] Failed to parse content', e);
+    return { description: '', images: [], embeds: [] };
+  }
+}
+
+function transformRSSItem(item, index, allItems) {
+  const title = getText(item, 'title');
+  const link = getText(item, 'link');
+  const pubDate = getText(item, 'pubDate');
+
+  // Try multiple ways to get the rich content (namespace handling varies)
+  const contentEncoded =
+    item.getElementsByTagNameNS('http://purl.org/rss/1.0/modules/content/', 'encoded')?.[0]?.textContent ||
+    item.getElementsByTagName('content:encoded')?.[0]?.textContent ||
+    item.querySelector('encoded')?.textContent ||
+    '';
+
+  const rawDescription = getText(item, 'description') || '';
+
+  // Parse the richest available HTML
+  const { description, images, embeds } = parseDescriptionContent(contentEncoded || rawDescription);
+
+  // 1. Unique Images
+  const uniqueImages = [...new Set(images)];
+  const mainImage = uniqueImages[0] || '';
+
+  // 2. Build Gallery (Images + Videos)
+  const gallery = uniqueImages.map(url => ({ url, type: 'image' }));
+
+  // Add embeds (videos/3D) to the start of the gallery
+  let sketchfabUrl = null;
+  embeds.forEach(embed => {
+    // Only add if not already there (though embeds are usually unique)
+    if (!gallery.find(g => g.embed === embed)) {
+      gallery.unshift({ url: null, embed, type: 'video' });
+    }
+    
+    // Extract Sketchfab direct link if possible
+    if (embed.includes('sketchfab.com/models/')) {
+      const match = embed.match(/src="([^"]+)"/);
+      if (match && match[1]) {
+         // Convert embed URL to project URL: .../models/ID/embed -> .../models/ID
+         sketchfabUrl = match[1].split('/embed')[0];
+      }
+    }
+  });
+
+  // AUTO-CATEGORIZATION (Since RSS doesn't provide it)
+  let category = 'Hard Surface'; // Default for everything else
+  const t = (title || '').toLowerCase();
+  const d = (description || '').toLowerCase();
+  
+  // Characters, anatomy, humans go to Soft Surface
+  if (t.includes('character') || d.includes('character') || t.includes('human') || t.includes('anatomy') || d.includes('anatomy')) {
+    category = 'Soft Surface';
+  }
+  const slug = link.split('/').filter(Boolean).pop();
 
   return {
-    id:             `as-${p.hash_id || p.id}`,
-    artstationId:   p.hash_id || p.id,
-    title:          (p.title || 'Untitled').toUpperCase(),
-    titleRaw:       p.title || 'Untitled',
+    id: `rss-${slug}`,
+    artstationId: slug,
+    title: (title || 'Untitled').toUpperCase(),
+    titleRaw: title || 'Untitled',
     category,
-    description:    stripHtml(p.description_html).slice(0, 280) || `${p.title} — ArtStation`,
-    descriptionHtml: sanitizeHtml(p.description_html || ''),
-    image:          mainImage,
+    description: description || stripHtml(rawDescription).slice(0, 280) || `${title} — ArtStation`,
+    descriptionHtml: sanitizeHtml(description.replace(/\n/g, '<br/>')),
+    image: mainImage,
     gallery,
-    galleryUrls:    gallery.map(g => g.url),
-    tags,
-    size:           deriveSize(index),
-    year,
-    publishedAt:    p.created_at   || null,
-    updatedAt:      p.updated_at   || null,
-    publishedLabel: formatDate(p.created_at),
-    software:       (p.software_items || []).map(s => s.name),
-    likesCount:     p.likes_count    || 0,
-    viewsCount:     p.views_count    || 0,
-    commentsCount:  p.comments_count || 0,
-    permalink:      p.permalink || `https://www.artstation.com/artwork/${p.hash_id}`,
+    galleryUrls: uniqueImages,
+    tags: ['3D Modeling', 'Texturing', 'ArtStation'],
+    size: deriveSize(index),
+    year: pubDate ? new Date(pubDate).getFullYear().toString() : new Date().getFullYear().toString(),
+    publishedAt: pubDate || null,
+    updatedAt: pubDate || null,
+    publishedLabel: formatDate(pubDate),
+    software: [],
+    likesCount: 0,
+    viewsCount: 0,
+    commentsCount: 0,
+    permalink: link,
+    hasDetails: true,
     artist: {
-      username:   p.user?.username      || USERNAME,
-      fullName:   p.user?.full_name     || 'SUHEL J. RAHMAN',
-      headline:   p.user?.headline      || '3D Artist & Digital Creator',
-      avatarUrl:  p.user?.medium_avatar_url || p.user?.small_cover_url || null,
-      profileUrl: `https://www.artstation.com/${p.user?.username || USERNAME}`,
+      username: USERNAME,
+      fullName: 'SUHEL J. RAHMAN',
+      headline: '3D Artist & Digital Creator',
+      avatarUrl: null,
+      profileUrl: `https://www.artstation.com/${USERNAME}`,
     },
-    // Extract Sketchfab embeds from ArtStation assets, with local overrides
-    embed3d: (() => {
-      const hash = p.hash_id || p.id;
-      
-      // 1. Dynamic Auto-Mapping: Match Sketchfab models by title
-      if (sketchfabModels.length > 0 && p.title) {
-        const cleanTitle = p.title.trim().toUpperCase();
-        const sfMatch = sketchfabModels.find(m => {
-          const sfName = m.name.trim().toUpperCase();
-          return sfName === cleanTitle || sfName.includes(cleanTitle) || cleanTitle.includes(sfName);
-        });
-        if (sfMatch && sfMatch.uid) {
-          return `<iframe src="https://sketchfab.com/models/${sfMatch.uid}/embed?autostart=1&transparent=1&ui_infos=0&ui_watermark=0" allow="autoplay; fullscreen; xr-spatial-tracking" execution-while-out-of-viewport execution-while-not-rendered web-share allowfullscreen></iframe>`;
-        }
-      }
-      
-      // 2. Hard-map Sketchfab models to their respective ArtStation projects
-      if (hash === 'nJrKxK') {
-        // "Stylized Weapon"
-        return `<iframe src="https://sketchfab.com/models/657b39877cf64ee79734b0062edd1527/embed?autostart=1&transparent=1&ui_infos=0&ui_watermark=0" allow="autoplay; fullscreen; xr-spatial-tracking" execution-while-out-of-viewport execution-while-not-rendered web-share allowfullscreen></iframe>`;
-      }
-      if (hash === 'eRkGQ6') {
-        // "High Detail 3D Character"
-        return `<iframe src="https://sketchfab.com/models/8a3b2dba16e3485d999c28ecedefdf84/embed?autostart=1&transparent=1&ui_infos=0&ui_watermark=0" allow="autoplay; fullscreen; xr-spatial-tracking" execution-while-out-of-viewport execution-while-not-rendered web-share allowfullscreen></iframe>`;
-      }
-      
-      // 3. Extract any embed (Sketchfab, YouTube, Vimeo, etc.)
-      const embedAsset = (p.assets || []).find(a => a.has_embedded_player && a.player_embedded);
-      if (embedAsset) return embedAsset.player_embedded;
-      
-      // If no Sketchfab is found, do NOT show the same model. Fall back to the 2D image.
-      return null;
-    })(),
-    // Keep local model fallback just in case
-    model: (() => {
-      const hash = p.hash_id || p.id;
-      if (hash === 'nJrKxK') return null; // removed local GLB since we're using Sketchfab
-      return null;
-    })(),
+    embed3d: embeds.find(e => e.includes('sketchfab')) || embeds[0] || null,
+    sketchfabUrl: sketchfabUrl,
   };
 }
 
-/* ── Main hook ──────────────────────────────── */
+function parseRSS(xmlText) {
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(xmlText, 'text/xml');
+
+  // Handle potential parse errors
+  const parseError = xml.getElementsByTagName('parsererror');
+  if (parseError.length) throw new Error('XML Parse Error');
+
+  const items = Array.from(xml.querySelectorAll('item'));
+  if (!items.length) throw new Error('No projects found in RSS');
+
+  return items.map((item, index) => transformRSSItem(item, index, items));
+}
+
 export function useArtStation({ perPage = 20 } = {}) {
   const [projects, setProjects] = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState(null);
-  const [synced,   setSynced]   = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [synced, setSynced] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      // 1. Instantly load from cache if available (Stale-While-Revalidate)
       const cached = getCache();
+
       if (cached) {
-        setProjects(cached);
+        // De-duplicate cached data just in case
+        const uniqueCached = cached.filter((p, index, self) =>
+          index === self.findIndex((t) => t.id === p.id)
+        );
+        setProjects(uniqueCached.slice(0, perPage));
         setSynced(true);
-        setLoading(false); // UI shows instantly
+        setLoading(false);
       } else {
         setLoading(true);
       }
 
       setError(null);
 
-      // 2. Always fetch fresh data in the background
       try {
-        const timestamp = Date.now();
-        
-        // Fetch Sketchfab models for automatic mapping (runs in parallel but awaited before detailed mapping)
-        let sketchfabModels = [];
-        try {
-          const sfRes = await fetch(`https://api.sketchfab.com/v3/models?user=SUHEL3D`);
-          if (sfRes.ok) {
-            const sfData = await sfRes.json();
-            sketchfabModels = sfData.results || [];
-          }
-        } catch (sfErr) {
-          console.warn('[useArtStation] Failed to fetch Sketchfab models for auto-mapping', sfErr);
-        }
-
-        let page = 1;
-        let allItems = [];
-        while (true) {
-          const listData = await fetchURL(
-            `https://www.artstation.com/users/${USERNAME}/projects.json?page=${page}&per_page=${perPage}&_t=${timestamp}`
-          );
-          const items = listData.data || [];
-          if (!items.length) break;
-          allItems = [...allItems, ...items];
-          if (items.length < perPage) break; // last page
-          page++;
-        }
-        if (!allItems.length) throw new Error('No projects returned');
-
-        // Fetch full detail for each project
-        const detailed = await Promise.all(
-          allItems.map(async (item, i) => {
-            try {
-              const detail = await fetchURL(
-                `https://www.artstation.com/projects/${item.hash_id || item.id}.json?_t=${timestamp}`
-              );
-              return transform({ ...item, ...detail }, i, allItems, sketchfabModels);
-            } catch {
-              return transform(item, i, allItems, sketchfabModels);
-            }
-          })
-        );
+        const rssText = await fetchRSS();
+        const data = parseRSS(rssText);
 
         if (!cancelled) {
-          setProjects(detailed);
+          // De-duplicate by ID before setting state
+          const uniqueData = data.filter((p, index, self) =>
+            index === self.findIndex((t) => t.id === p.id)
+          );
+
+          const sliced = uniqueData.slice(0, perPage);
+          setProjects(sliced);
           setSynced(true);
-          setCache(detailed); // Update cache with fresh data
+          setLoading(false);
+          setCache(uniqueData);
         }
       } catch (err) {
         if (!cancelled && !cached) {
-          // Only show error if we also have no cache
-          console.error('[useArtStation] Background fetch failed:', err.message);
           setError(err.message);
+          setSynced(false);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -288,8 +290,31 @@ export function useArtStation({ perPage = 20 } = {}) {
     }
 
     load();
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+    };
   }, [perPage]);
 
-  return { projects, loading, error, synced, username: USERNAME };
+  return {
+    projects,
+    loading,
+    error,
+    synced,
+    username: USERNAME,
+  };
+}
+
+export function useSingleProject(hash_id, basicProject) {
+  const [detailedProject, setDetailedProject] = useState(basicProject);
+  const [isLoading] = useState(false);
+
+  useEffect(() => {
+    setDetailedProject(basicProject);
+  }, [hash_id, basicProject]);
+
+  return {
+    project: detailedProject || basicProject,
+    isLoading,
+  };
 }

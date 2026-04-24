@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useArtStation, sanitizeHtml } from '../../hooks/useArtStation';
+import { useArtStation, useSingleProject, sanitizeHtml } from '../../hooks/useArtStation';
 import Model3DViewer from '../../components/Model3DViewer/Model3DViewer';
 import './ProjectDetail.css';
 
@@ -86,15 +86,34 @@ export default function ProjectDetailPage() {
   /* ArtStation live data only */
   const { projects, loading, synced } = useArtStation({ perPage: 20 });
 
-  const project = projects.find(p => p.id === id);
+  const basicProject = projects.find(p => p.id === id);
   const projectIndex = projects.findIndex(p => p.id === id);
   const prevProject = projects[projectIndex - 1] || null;
   const nextProject = projects[projectIndex + 1] || null;
+
+  /* Fetch full details for this specific project only */
+  const { project, isLoading: isDetailLoading } = useSingleProject(basicProject?.artstationId, basicProject);
 
   /* Gallery images (array of URLs for lightbox) */
   const galleryUrls = project?.galleryUrls || (project?.gallery
     ? project.gallery.map(g => typeof g === 'string' ? g : g.url)
     : (project ? [project.image] : []));
+    
+  /* Hero Slideshow State */
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const heroImages = galleryUrls.filter(url => url && typeof url === 'string');
+
+  const hasEmbed3D = Boolean(project?.embed3d);
+  const hasLocalModel = Boolean(project?.model);
+  const has3DModel = hasEmbed3D || hasLocalModel;
+
+  useEffect(() => {
+    if (heroImages.length <= 1 || has3DModel) return;
+    const interval = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % heroImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [heroImages.length, has3DModel]);
 
   /* Lightbox state */
   const [lightboxIndex, setLightboxIndex] = useState(null);
@@ -134,11 +153,11 @@ export default function ProjectDetailPage() {
   }, [id]);
 
   /* ── Loading state (ArtStation still syncing) ── */
-  if (loading || (!synced && !project)) {
+  if (loading || isDetailLoading || (!synced && !project)) {
     return (
       <div className="pd-loading-state">
         <div className="pd-loading-spinner" />
-        <p>Loading from ArtStation…</p>
+        <p>Loading project details…</p>
       </div>
     );
   }
@@ -157,13 +176,10 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const hasEmbed3D = Boolean(project.embed3d);
-  const hasLocalModel = Boolean(project.model);
-  const has3DModel = hasEmbed3D || hasLocalModel;
-  const hasHtmlDesc = Boolean(project.descriptionHtml?.trim());
-  const hasStats = (project.likesCount > 0 || project.viewsCount > 0);
-  const moreProjects = project.moreByArtist || [];
-  const fullGallery = project.gallery || galleryUrls.map(u => ({ url: u }));
+  const hasHtmlDesc = Boolean(project?.descriptionHtml?.trim());
+  const hasStats = (project?.likesCount > 0 || project?.viewsCount > 0);
+  const moreProjects = project?.moreByArtist || [];
+  const fullGallery = project?.gallery || galleryUrls.map(u => ({ url: u }));
 
   return (
     <div className="project-detail">
@@ -178,7 +194,30 @@ export default function ProjectDetailPage() {
           ) : hasLocalModel ? (
             <Model3DViewer key={project.id} url={project.model} fallbackImage={project.image} alt={project.title} />
           ) : (
-            <img key={project.id} ref={heroRef} src={project.image} alt={project.title} className="pd-hero__image" />
+            <div className="pd-hero__slideshow">
+               {heroImages.length > 0 ? (
+                 heroImages.map((url, idx) => (
+                   <img 
+                     key={url} 
+                     src={url} 
+                     alt={project?.title} 
+                     className={`pd-hero__image ${idx === currentSlide ? 'active' : ''}`} 
+                     style={{ 
+                       opacity: idx === currentSlide ? 1 : 0,
+                       visibility: idx === currentSlide ? 'visible' : 'hidden',
+                       position: 'absolute',
+                       inset: 0,
+                       width: '100%',
+                       height: '100%',
+                       objectFit: 'cover',
+                       transition: 'opacity 1s ease, visibility 1s ease'
+                     }}
+                   />
+                 ))
+               ) : (
+                 <img src={project?.image} alt={project?.title} className="pd-hero__image" style={{ opacity: 1, visibility: 'visible' }} />
+               )}
+            </div>
           )}
           {!hasEmbed3D && <div className="pd-hero__overlay" />}
         </div>
@@ -199,11 +238,21 @@ export default function ProjectDetailPage() {
               {project.tags.slice(0, 4).map(t => <span key={t} className="tag">{t}</span>)}
             </div>
             {has3DModel && (
-              <div className="pd-hero__model-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                </svg>
-                Interactive 3D Model
+              <div className="pd-hero__model-actions">
+                <div className="pd-hero__model-badge">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                  </svg>
+                  Interactive 3D Model
+                </div>
+                {project.sketchfabUrl && (
+                  <a href={project.sketchfabUrl} target="_blank" rel="noopener noreferrer" className="pd-hero__sketchfab-link">
+                    <span>View on Sketchfab</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" />
+                    </svg>
+                  </a>
+                )}
               </div>
             )}
           </div>
@@ -252,6 +301,13 @@ export default function ProjectDetailPage() {
           {/* ── Stacked full-width assets (Images + Videos) ── */}
           <div className="pd-image-stack">
             {fullGallery.map((asset, i) => {
+              // If we are NOT showing a 3D model in the hero, the hero IS the first image.
+              // To avoid showing it twice, we skip the first image in the stack.
+              if (!has3DModel && i === 0 && asset.type === 'image') return null;
+
+              // If it's the SAME Sketchfab embed as the hero, skip it in the stack.
+              if (hasEmbed3D && asset.embed === project.embed3d) return null;
+
               const isVideo = asset.type === 'video' && asset.embed;
               const url = typeof asset === 'string' ? asset : asset.url;
               const caption = typeof asset === 'object' && asset.title ? asset.title : null;

@@ -8,9 +8,9 @@ export default function FeedbackPage() {
     <div className="feedback-page">
       <PageHero
         eyebrow="Testimonials"
-        title="Client"
-        accent="Feedback"
-        description="What clients and collaborators say about working with me — 100% satisfaction rate."
+        title="USER "
+        accent="IMPRESSIONS"
+        description="Give your feedback and be part of the creative journey."
         breadcrumb="Feedback"
       />
       <Feedback />

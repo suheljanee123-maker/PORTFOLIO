@@ -18,7 +18,7 @@ export default function PageHero({ eyebrow, title, accent, description, breadcru
   }, [slideshowImages]);
 
   return (
-    <div className={`page-hero ${slideshowImages ? 'page-hero--has-slideshow' : ''}`}>
+    <div className={`page-hero ${slideshowImages && slideshowImages.length > 0 ? 'page-hero--has-slideshow' : 'page-hero--text-only'}`}>
       {/* Background decorations */}
       <div className="page-hero__grid" aria-hidden="true" />
       <div className="page-hero__orb"  aria-hidden="true" />

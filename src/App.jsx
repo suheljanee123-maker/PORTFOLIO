@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { CMSProvider } from './context/CMSContext';
 import Layout       from './components/Layout/Layout';
 import HomePage     from './pages/Home/HomePage';
@@ -13,7 +13,7 @@ import ProjectDetailPage   from './pages/ProjectDetail/ProjectDetailPage';
 function App() {
   return (
     <CMSProvider>
-      <BrowserRouter>
+      <HashRouter>
         <div className="noise-overlay" aria-hidden="true" />
         <Routes>
           <Route element={<Layout />}>
@@ -26,7 +26,7 @@ function App() {
             <Route path="*"            element={<NotFoundPage      />} />
           </Route>
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </CMSProvider>
   );
 }

@@ -80,6 +80,14 @@
   min-height: 280px;
 }
 
+.page-hero--text-only {
+  padding: calc(var(--navbar-h) + 20px) 0 20px;
+}
+
+.page-hero--text-only .page-hero__content-wrap {
+  min-height: 180px;
+}
+
 .page-hero__text {
   flex: 1;
 }

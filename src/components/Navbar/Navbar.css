@@ -80,7 +80,21 @@
 .navbar__cta {
   font-size: 0.78rem;
   padding: 10px 24px;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
+  background: rgba(255, 106, 0, 0.05) !important;
+  border: 1px solid rgba(255, 106, 0, 0.25) !important;
+  color: #f0f0f2 !important;
+  box-shadow: 0 0 15px rgba(255, 106, 0, 0.05) !important;
+  backdrop-filter: blur(12px);
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1) !important;
+}
+
+.navbar__cta:hover {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 25px rgba(255, 106, 0, 0.4) !important;
+  transform: translateY(-2px);
 }
 
 /* Progress bar */

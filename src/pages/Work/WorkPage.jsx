@@ -6,7 +6,17 @@ import './WorkPage.css';
 
 export default function WorkPage() {
   const { projects } = useArtStation({ perPage: 10 });
-  const slideshowImages = projects.map(p => p.image).filter(Boolean);
+  
+  // Fallback images if ArtStation is slow or blocked
+  const fallbackImages = [
+    'https://cdnb.artstation.com/p/assets/images/images/062/716/163/large/suhel-jarahman-stylized-gun-low-poly.jpg',
+    'https://cdna.artstation.com/p/assets/images/images/062/716/092/large/suhel-jarahman-high-poly-sculpt.jpg',
+    'https://cdnb.artstation.com/p/assets/images/images/062/716/167/large/suhel-jarahman-stylized-sword.jpg'
+  ];
+
+  const slideshowImages = projects.length > 0 
+    ? projects.map(p => p.image).filter(Boolean)
+    : fallbackImages;
 
   return (
     <div className="work-page">

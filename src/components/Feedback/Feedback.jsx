@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import emailjs from '@emailjs/browser';
 import { useCMS } from '../../context/CMSContext';
 import './Feedback.css';
 
@@ -100,20 +101,45 @@ function FeedbackForm({ onSubmit }) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
+  const [isSending, setIsSending] = useState(false);
+
   const initials = name.trim()
     ? name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
     : '?';
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!rating)      { setError('Please select a star rating.'); return; }
     if (!text.trim()) { setError('Please write something about your experience.'); return; }
     if (!name.trim()) { setError('Please enter your name.'); return; }
     setError('');
-    onSubmit({ name: name.trim(), role: 'Client', text: text.trim(), rating, avatar: initials });
-    setName(''); setText(''); setRating(0);
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 3500);
+    setIsSending(true);
+
+    try {
+      // Send the feedback to your email via EmailJS
+      await emailjs.send(
+        'service_y9lx6nu',
+        'template_oegg6s6', // Using the same template as the contact form
+        {
+          name: name.trim(),
+          email: 'no-email@feedback.com',
+          subject: `⭐️ New Feedback: ${rating}/5 Stars`,
+          message: text.trim(),
+          time: new Date().toLocaleString()
+        },
+        'FbWynaknFAe_TesbL'
+      );
+
+      onSubmit({ name: name.trim(), role: 'Client', text: text.trim(), rating, avatar: initials });
+      setName(''); setText(''); setRating(0);
+      setSubmitted(true);
+      setTimeout(() => setSubmitted(false), 3500);
+    } catch (err) {
+      console.error('EmailJS Error:', err);
+      setError('Failed to send feedback. Please try again.');
+    } finally {
+      setIsSending(false);
+    }
   }
 
   return (
@@ -164,11 +190,11 @@ function FeedbackForm({ onSubmit }) {
         </div>
 
         {/* Submit */}
-        <button type="submit" className="feedback-form__btn">
+        <button type="submit" className="feedback-form__btn" disabled={isSending}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
           </svg>
-          Send
+          {isSending ? 'Sending...' : 'Send'}
         </button>
 
       </div>
@@ -207,7 +233,7 @@ export default function Feedback() {
         {/* 1 — Compact form */}
         <FeedbackForm onSubmit={handleNewReview} />
 
-        <div className="section-header" style={{ marginTop: '100px', marginBottom: '40px' }}>
+        <div className="section-header" style={{ marginTop: '60px', marginBottom: '40px' }}>
           <span className="eyebrow">Testimonials</span>
           <h2 className="display-md">Wall of <span className="accent-text">Love</span></h2>
         </div>
